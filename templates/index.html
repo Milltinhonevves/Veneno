@@ -9,7 +9,6 @@
   <meta name="theme-color" content="#b400ff" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Veneno" />
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
 </head>
@@ -17,44 +16,68 @@
   <div class="container">
 
     <header>
-      <div class="logo">
-        <span class="logo-icon">🐍</span>
-        <h1>VENENO</h1>
-      </div>
+      <div class="logo"><span class="logo-icon">🐍</span><h1>VENENO</h1></div>
       <p class="tagline">Afinação vocal com veneno</p>
     </header>
 
     <main>
       <form id="form-veneno" enctype="multipart/form-data">
 
-        <!-- Áudio -->
-        <div class="card">
-          <h2>🎤 Áudio</h2>
+        <!-- GRAVADOR -->
+        <div class="card gravador-card">
+          <h2>🎤 Gravador</h2>
 
-          <button type="button" id="btn-gravar" class="btn-sec" style="width:100%;margin-bottom:8px">🔴 Gravar voz agora</button>
-          <button type="button" id="btn-parar-gravacao" class="btn-sec btn-danger" hidden style="width:100%;margin-bottom:8px">⏹ Parar gravação</button>
+          <!-- Ondas animadas -->
+          <div id="ondas" class="ondas">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
 
+          <!-- Timer -->
+          <div id="timer" class="timer">00:00</div>
+
+          <!-- Status -->
+          <p id="status-rec" class="status-rec">Pronto para gravar</p>
+
+          <!-- Botões gravador -->
+          <div class="gravador-btns">
+            <button type="button" id="btn-gravar" class="btn-rec">
+              <span class="rec-dot"></span> GRAVAR
+            </button>
+            <button type="button" id="btn-parar" class="btn-parar" hidden>
+              ⏹ PARAR
+            </button>
+            <button type="button" id="btn-regravar" class="btn-sec" hidden>
+              🔄 Nova gravação
+            </button>
+          </div>
+
+          <!-- Preview da gravação -->
+          <div id="preview-box" hidden style="margin-top:12px">
+            <p style="font-size:0.8rem;opacity:0.7;margin-bottom:4px">Ouça antes de processar:</p>
+            <audio id="preview-audio" controls style="width:100%"></audio>
+          </div>
+
+          <!-- Separador OU -->
+          <div class="ou-separador">
+            <span>ou</span>
+          </div>
+
+          <!-- Upload arquivo -->
           <label for="audio-input">
-            <div class="btn-sec" style="width:100%;text-align:center;cursor:pointer;margin-bottom:8px">
-              📂 Selecionar áudio do celular<br>
-              <small style="opacity:0.6">WAV · MP3 · OGG · FLAC · M4A · AAC · AMR · 3GP</small>
+            <div class="btn-upload">
+              📂 Selecionar arquivo do celular
+              <small>M4A · AAC · MP3 · WAV · OGG · AMR</small>
             </div>
           </label>
           <input type="file" id="audio-input" name="audio"
             accept=".wav,.mp3,.ogg,.flac,.m4a,.aac,.amr,.3gp,audio/*" hidden />
 
-          <p id="status-gravacao" style="font-size:0.9rem;color:#b400ff;min-height:20px;text-align:center"></p>
-
-          <div id="upload-area" class="upload-area">
-            <span id="upload-texto">Nenhum áudio selecionado</span>
-          </div>
-
-          <button type="button" id="btn-reusar" class="btn-sec" hidden style="width:100%;margin-top:8px">
+          <button type="button" id="btn-reusar" class="btn-sec btn-reusar" hidden>
             ♻️ Reusar mesmo áudio
           </button>
         </div>
 
-        <!-- Afinação -->
+        <!-- AFINAÇÃO -->
         <div class="card">
           <h2>🎵 Afinação</h2>
           <div class="row-2">
@@ -92,7 +115,7 @@
           </div>
         </div>
 
-        <!-- Efeitos -->
+        <!-- EFEITOS -->
         <div class="card">
           <h2>🎛️ Efeitos</h2>
           <div class="campo">
@@ -130,16 +153,10 @@
       </div>
     </main>
 
-    <footer>
-      <p>🐍 VENENO — por Miltinho Neves</p>
-    </footer>
+    <footer><p>🐍 VENENO — por Miltinho Neves</p></footer>
   </div>
 
   <script src="/static/js/main.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/static/sw.js');
-    }
-  </script>
+  <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js');</script>
 </body>
 </html>
