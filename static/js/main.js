@@ -167,7 +167,7 @@ form.addEventListener('submit', async e => {
 
   try {
     const resp = await fetch('/processar', { method: 'POST', body: data });
-    const json = await resp.json();
+    let json; try { json = await resp.json(); } catch(pe) { erroBox.hidden=false; msgErro.textContent="❌ Servidor retornou: HTTP " + resp.status + " - " + (await resp.text()).substring(0,200); btnProcessar.disabled=false; document.getElementById("btn-texto").hidden=false; document.getElementById("btn-loading").hidden=true; return; }
 
     if (json.sucesso) {
       resultado.hidden  = false;
