@@ -1,24 +1,17 @@
 import os
 import uuid
-import io
 import numpy as np
 import librosa
 import soundfile as sf
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from pedalboard import Pedalboard, Chorus, Reverb, Compressor, Gain
 import traceback
+import io
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['PROCESSED_FOLDER'] = 'processed'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
-
-def converter_para_wav(caminho_entrada, caminho_saida):
-    """Converte qualquer formato para WAV usando pydub"""
-    from pydub import AudioSegment
-    audio = AudioSegment.from_file(caminho_entrada)
-    audio = audio.set_channels(1).set_frame_rate(44100)
-    audio.export(caminho_saida, format="wav")
 
 NOTAS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 ESCALAS = {
@@ -33,8 +26,6 @@ def hz_para_midi(hz):
     return 69 + 12 * np.log2(hz / 440.0)
 
 def nota_mais_proxima(midi_note, escala_notas_midi):
-    if len(escala_notas_midi) == 0:
-        return midi_note
     diferencas = np.abs(np.array(escala_notas_midi) - midi_note)
     return escala_notas_midi[np.argmin(diferencas)]
 
@@ -44,21 +35,17 @@ def gerar_notas_escala(tonica, escala):
     notas = []
     for oitava in range(-1, 9):
         for intervalo in intervalos:
-            midi = (oitava + 1) * 12 + idx_tonica + intervalo
-            notas.append(midi)
+            notas.append((oitava + 1) * 12 + idx_tonica + intervalo)
     return notas
 
 def autotune(y, sr, tonica='C', escala='cromatica', strength=1.0, smoothing=0.0):
-    frame_length = 2048
-    hop_length = 512
-
-    f0, voiced_flag, voiced_probs = librosa.pyin(
+    f0, voiced_flag, _ = librosa.pyin(
         y,
         fmin=librosa.note_to_hz('C2'),
         fmax=librosa.note_to_hz('C7'),
         sr=sr,
-        frame_length=frame_length,
-        hop_length=hop_length
+        frame_length=2048,
+        hop_length=512
     )
 
     notas_escala = gerar_notas_escala(tonica, escala)
@@ -72,8 +59,7 @@ def autotune(y, sr, tonica='C', escala='cromatica', strength=1.0, smoothing=0.0)
 
     if smoothing > 0:
         from scipy.ndimage import uniform_filter1d
-        window = max(1, int(smoothing * 20))
-        shifts = uniform_filter1d(shifts, size=window)
+        shifts = uniform_filter1d(shifts, size=max(1, int(smoothing * 20)))
 
     voiced_shifts = shifts[voiced_flag]
     if len(voiced_shifts) == 0 or np.all(np.isnan(voiced_shifts)):
@@ -106,7 +92,6 @@ def processar():
         return jsonify({'erro': 'Nenhum arquivo enviado'}), 400
 
     arquivo = request.files['audio']
-
     tonica     = request.form.get('tonica', 'C')
     escala     = request.form.get('escala', 'cromatica')
     strength   = float(request.form.get('strength', 1.0))
@@ -120,21 +105,12 @@ def processar():
 
     uid = str(uuid.uuid4())
     caminho_temp = os.path.join(app.config['UPLOAD_FOLDER'], f"{uid}_orig")
-    caminho_wav  = os.path.join(app.config['UPLOAD_FOLDER'], f"{uid}.wav")
-
     arquivo.save(caminho_temp)
 
     try:
-        converter_para_wav(caminho_temp, caminho_wav)
-    except Exception as e:
-        print("ERRO conversão:", traceback.format_exc())
-        return jsonify({'erro': f'Não foi possível ler o áudio: {str(e)}'}), 400
-    finally:
-        try: os.remove(caminho_temp)
-        except: pass
-
-    try:
-        y, sr = librosa.load(caminho_wav, sr=None, mono=True)
+        # Librosa lê qualquer formato nativamente (wav, webm, ogg, m4a, mp3...)
+        # usando soundfile + audioread como fallback
+        y, sr = librosa.load(caminho_temp, sr=None, mono=True)
 
         if len(y) == 0:
             return jsonify({'erro': 'Áudio vazio, grave novamente.'}), 400
@@ -151,10 +127,10 @@ def processar():
         return jsonify({'sucesso': True, 'arquivo': nome_saida, 'url': f'/download/{nome_saida}'})
 
     except Exception as e:
-        print("ERRO processamento:", traceback.format_exc())
+        print("ERRO:", traceback.format_exc())
         return jsonify({'erro': f'Erro ao processar: {str(e)}'}), 500
     finally:
-        try: os.remove(caminho_wav)
+        try: os.remove(caminho_temp)
         except: pass
 
 @app.route('/download/<nome_arquivo>')
