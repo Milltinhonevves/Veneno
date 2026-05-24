@@ -11,11 +11,11 @@ const btnDownload  = document.getElementById('btn-download');
 const erroDiv      = document.getElementById('erro');
 const msgErro      = document.getElementById('msg-erro');
 
-// ─── GRAVADOR ────────────────────────────────────────────────────
 const btnGravar    = document.getElementById('btn-gravar');
 const btnParar     = document.getElementById('btn-parar');
 const btnReGravar  = document.getElementById('btn-regravar');
 const btnReusar    = document.getElementById('btn-reusar');
+const btnApagar    = document.getElementById('btn-apagar');
 const previewAudio = document.getElementById('preview-audio');
 const previewBox   = document.getElementById('preview-box');
 const statusRec    = document.getElementById('status-rec');
@@ -34,6 +34,7 @@ function formatarTempo(s) {
   return `${m}:${ss}`;
 }
 
+// ─── GRAVAR ──────────────────────────────────────────────────────
 btnGravar.addEventListener('click', async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -50,6 +51,7 @@ btnGravar.addEventListener('click', async () => {
       btnParar.hidden = true;
       btnReGravar.hidden = false;
       btnReusar.hidden = false;
+      btnApagar.hidden = false;
       btnProcessar.disabled = false;
       ondas.classList.remove('ativo');
       statusRec.textContent = '✅ Gravação pronta! Ouça antes de processar.';
@@ -65,6 +67,7 @@ btnGravar.addEventListener('click', async () => {
     btnGravar.hidden = true;
     btnParar.hidden = false;
     btnReGravar.hidden = true;
+    btnApagar.hidden = true;
     previewBox.hidden = true;
     ondas.classList.add('ativo');
     statusRec.textContent = '🔴 Gravando...';
@@ -74,23 +77,33 @@ btnGravar.addEventListener('click', async () => {
   }
 });
 
+// ─── PARAR ───────────────────────────────────────────────────────
 btnParar.addEventListener('click', () => {
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     mediaRecorder.stop();
   }
 });
 
-btnReGravar.addEventListener('click', () => {
+// ─── APAGAR ──────────────────────────────────────────────────────
+btnApagar.addEventListener('click', () => {
   arquivoAtual = null;
+  previewAudio.src = '';
   previewBox.hidden = true;
   btnGravar.hidden = false;
   btnParar.hidden = true;
   btnReGravar.hidden = true;
   btnReusar.hidden = true;
+  btnApagar.hidden = true;
   btnProcessar.disabled = true;
-  statusRec.textContent = '';
   timerEl.textContent = '00:00';
+  statusRec.textContent = 'Pronto para gravar';
+  ondas.classList.remove('ativo');
   esconderResultado();
+});
+
+// ─── NOVA GRAVAÇÃO ────────────────────────────────────────────────
+btnReGravar.addEventListener('click', () => {
+  btnApagar.click(); // reutiliza a lógica de apagar
 });
 
 // ─── UPLOAD ARQUIVO ──────────────────────────────────────────────
@@ -100,6 +113,7 @@ audioInput.addEventListener('change', () => {
     previewAudio.src = URL.createObjectURL(arquivoAtual);
     previewBox.hidden = false;
     btnReusar.hidden = false;
+    btnApagar.hidden = false;
     btnProcessar.disabled = false;
     statusRec.textContent = `✅ ${arquivoAtual.name}`;
     esconderResultado();
