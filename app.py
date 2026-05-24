@@ -150,7 +150,9 @@ def processar():
         return jsonify({'sucesso': True, 'arquivo': nome_saida, 'url': f'/download/{nome_saida}'})
 
     except Exception as e:
-        print("ERRO COMPLETO:", traceback.format_exc())
+        tb = traceback.format_exc()
+        print("ERRO COMPLETO:", tb)
+        ultimos_erros.append({'erro': str(e), 'traceback': tb[-500:], 'content_type': content_type})
         return jsonify({'erro': f'Erro: {str(e)}'}), 500
     finally:
         try: os.remove(caminho_temp)
@@ -170,3 +172,10 @@ if __name__ == '__main__':
     os.makedirs('processed', exist_ok=True)
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)
+
+# Guarda ultimos erros em memoria
+ultimos_erros = []
+
+@app.route('/erros')
+def ver_erros():
+    return jsonify(ultimos_erros[-10:])
