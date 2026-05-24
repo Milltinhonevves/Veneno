@@ -243,3 +243,134 @@ footer {
   color: var(--muted);
   font-size: 0.85rem;
 }
+
+/* ─── GRAVADOR ─────────────────────────────────────────────────── */
+.gravador-card { text-align: center; }
+
+.ondas {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 5px;
+  height: 50px;
+  margin: 12px 0;
+}
+.ondas span {
+  display: block;
+  width: 6px;
+  background: #b400ff44;
+  border-radius: 4px;
+  height: 8px;
+  transition: height 0.1s;
+}
+.ondas.ativo span {
+  background: #b400ff;
+  animation: onda 0.8s infinite ease-in-out;
+}
+.ondas.ativo span:nth-child(1) { animation-delay: 0s; }
+.ondas.ativo span:nth-child(2) { animation-delay: 0.1s; }
+.ondas.ativo span:nth-child(3) { animation-delay: 0.2s; }
+.ondas.ativo span:nth-child(4) { animation-delay: 0.3s; }
+.ondas.ativo span:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes onda {
+  0%, 100% { height: 8px; }
+  50% { height: 40px; }
+}
+
+.timer {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #b400ff;
+  letter-spacing: 4px;
+  margin: 4px 0 8px;
+}
+
+.status-rec {
+  font-size: 0.85rem;
+  color: #aaa;
+  min-height: 20px;
+  margin-bottom: 12px;
+}
+
+.gravador-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-rec {
+  background: #b400ff;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 14px 40px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: 2px;
+}
+.btn-rec:active { opacity: 0.8; }
+
+.rec-dot {
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  animation: piscar 1s infinite;
+  display: inline-block;
+}
+@keyframes piscar { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+.btn-parar {
+  background: #ff3a3a;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 14px 40px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  letter-spacing: 2px;
+}
+
+.ou-separador {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+  color: #555;
+  font-size: 0.85rem;
+}
+.ou-separador::before, .ou-separador::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #333;
+}
+
+.btn-upload {
+  background: #1a1a1a;
+  border: 1px dashed #b400ff88;
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.95rem;
+  color: #ddd;
+  transition: border-color 0.2s;
+}
+.btn-upload:hover { border-color: #b400ff; }
+.btn-upload small { color: #888; font-size: 0.75rem; }
+
+.btn-reusar {
+  width: 100%;
+  margin-top: 10px;
+}
