@@ -3,6 +3,5 @@ gunicorn==22.0.0
 librosa==0.10.2
 soundfile==0.12.1
 numpy==1.26.4
-pyrubberband==0.3.0
 pedalboard==0.9.13
 scipy
