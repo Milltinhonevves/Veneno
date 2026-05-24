@@ -1,0 +1,245 @@
+/* ─── VENENO — Estilo ─────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --verde:    #00ff88;
+  --verde2:   #00c96a;
+  --escuro:   #0a0a0a;
+  --card:     #111111;
+  --borda:    #1e1e1e;
+  --texto:    #e8e8e8;
+  --muted:    #666;
+  --danger:   #ff4444;
+}
+
+body {
+  background: var(--escuro);
+  color: var(--texto);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  padding: 2rem 1rem;
+}
+
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* ── Header ── */
+header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.logo-icon { font-size: 2.5rem; }
+
+h1 {
+  font-size: 3rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  background: linear-gradient(135deg, var(--verde), var(--verde2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.tagline {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: 0.3rem;
+  letter-spacing: 0.05em;
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.2rem;
+}
+
+.card h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1.2rem;
+  color: var(--verde);
+}
+
+/* ── Upload ── */
+#upload-area {
+  cursor: pointer;
+  border: 2px dashed var(--borda);
+  transition: border-color 0.2s;
+}
+
+#upload-area:hover { border-color: var(--verde); }
+#upload-area.ativo { border-color: var(--verde); background: #0d1f16; }
+
+.upload-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 1rem 0;
+}
+
+.upload-icon { font-size: 2.5rem; }
+
+.upload-label span { font-weight: 600; }
+.upload-label small { color: var(--muted); font-size: 0.8rem; }
+
+/* ── Campos ── */
+.campo { margin-bottom: 1.2rem; }
+.campo:last-child { margin-bottom: 0; }
+
+.campo label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.campo label small {
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.campo label span {
+  color: var(--verde);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+select, input[type="range"] {
+  width: 100%;
+  background: var(--escuro);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  color: var(--texto);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.95rem;
+  appearance: none;
+}
+
+select:focus { outline: 1px solid var(--verde); }
+
+input[type="range"] {
+  padding: 0;
+  height: 6px;
+  cursor: pointer;
+  accent-color: var(--verde);
+  border: none;
+}
+
+.row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* ── Toggle (Checkbox) ── */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--texto);
+  padding: 0.6rem 0;
+}
+
+.toggle input { display: none; }
+
+.slider {
+  width: 40px;
+  height: 22px;
+  background: var(--borda);
+  border-radius: 999px;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.slider::after {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  top: 3px; left: 3px;
+  transition: transform 0.2s;
+}
+
+.toggle input:checked + .slider { background: var(--verde); }
+.toggle input:checked + .slider::after { transform: translateX(18px); }
+
+/* ── Botão principal ── */
+#btn-processar {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, var(--verde), var(--verde2));
+  color: #000;
+  font-weight: 900;
+  font-size: 1.05rem;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+#btn-processar:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+#btn-processar:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Resultado ── */
+.resultado h2 { color: var(--verde); }
+
+audio {
+  width: 100%;
+  margin: 1rem 0;
+  filter: invert(1) hue-rotate(100deg);
+}
+
+.btn-download {
+  display: block;
+  text-align: center;
+  padding: 0.8rem;
+  background: transparent;
+  border: 1px solid var(--verde);
+  border-radius: 8px;
+  color: var(--verde);
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.btn-download:hover { background: #0d1f16; }
+
+/* ── Erro ── */
+.erro { border-color: var(--danger); }
+.erro p { color: var(--danger); font-weight: 600; }
+
+/* ── Footer ── */
+footer {
+  text-align: center;
+  margin-top: 3rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
