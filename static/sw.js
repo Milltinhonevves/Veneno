@@ -1,14 +1,19 @@
-const CACHE_NAME = 'veneno-v1';
-const urlsToCache = ['/', '/static/css/style.css', '/static/js/main.js'];
+// Versão 3 - sem cache agressivo
+const CACHE_NAME = 'veneno-v3';
 
 self.addEventListener('install', event => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
+    caches.keys().then(keys =>
+      Promise.all(keys.map(key => caches.delete(key)))
+    ).then(() => self.clients.claim())
   );
 });
 
+// Sem cache - sempre busca do servidor
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request).then(response => response || fetch(event.request))
-  );
+  event.respondWith(fetch(event.request));
 });
