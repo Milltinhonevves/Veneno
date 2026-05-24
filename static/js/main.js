@@ -1,24 +1,29 @@
-const form        = document.getElementById('tuner-form');
+// IDs do HTML
 const btnGravar   = document.getElementById('btn-gravar');
 const btnParar    = document.getElementById('btn-parar');
-const btnDeletar  = document.getElementById('btn-deletar');
+const btnRegravar = document.getElementById('btn-regravar');
+const btnApagar   = document.getElementById('btn-apagar');
+const btnReusar   = document.getElementById('btn-reusar');
+const btnProcessar= document.getElementById('btn-processar');
 const timerEl     = document.getElementById('timer');
+const statusRec   = document.getElementById('status-rec');
+const previewBox  = document.getElementById('preview-box');
 const previewAudio= document.getElementById('preview-audio');
 const audioInput  = document.getElementById('audio-input');
-const statusEl    = document.getElementById('status');
-const resultEl    = document.getElementById('result');
-const audioResult = document.getElementById('audio-result');
-const canvas      = document.getElementById('visualizer');
-const canvasCtx   = canvas ? canvas.getContext('2d') : null;
+const ondas       = document.getElementById('ondas');
+const form        = document.getElementById('form-veneno');
+const resultado   = document.getElementById('resultado');
+const player      = document.getElementById('player');
+const btnDownload = document.getElementById('btn-download');
+const erroBox     = document.getElementById('erro');
+const msgErro     = document.getElementById('msg-erro');
 
 let mediaRecorder = null;
 let chunks        = [];
 let timerInterval = null;
 let startTime     = null;
 let arquivoAtual  = null;
-let audioContext  = null;
-let analyser      = null;
-let animFrame     = null;
+let blobGravado   = null;
 
 function getMimeType() {
   const tipos = [
@@ -29,7 +34,7 @@ function getMimeType() {
     'audio/mp4',
   ];
   for (const t of tipos) {
-    if (MediaRecorder.isTypeSupported(t)) return t;
+    try { if (MediaRecorder.isTypeSupported(t)) return t; } catch(e) {}
   }
   return '';
 }
@@ -39,30 +44,30 @@ function formatTime(ms) {
   return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 }
 
-function drawVisualizer() {
-  if (!analyser || !canvasCtx) return;
-  animFrame = requestAnimationFrame(drawVisualizer);
-  const buf = new Uint8Array(analyser.frequencyBinCount);
-  analyser.getByteTimeDomainData(buf);
-  canvasCtx.fillStyle = '#111';
-  canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-  canvasCtx.lineWidth = 2;
-  canvasCtx.strokeStyle = '#00ff88';
-  canvasCtx.beginPath();
-  const sl = canvas.width / buf.length;
-  let x = 0;
-  for (let i = 0; i < buf.length; i++) {
-    const y = (buf[i] / 128.0) * (canvas.height / 2);
-    i === 0 ? canvasCtx.moveTo(x, y) : canvasCtx.lineTo(x, y);
-    x += sl;
+function setGravando(sim) {
+  btnGravar.hidden   = sim;
+  btnParar.hidden    = !sim;
+  ondas.classList.toggle('ativo', sim);
+  if (sim) {
+    timerEl.textContent = '00:00';
+    statusRec.textContent = '🔴 Gravando...';
   }
-  canvasCtx.lineTo(canvas.width, canvas.height / 2);
-  canvasCtx.stroke();
 }
 
-btnGravar && btnGravar.addEventListener('click', async () => {
+function mostrarPreview(blob, mime) {
+  previewBox.hidden = false;
+  previewAudio.src  = URL.createObjectURL(blob);
+  btnRegravar.hidden = false;
+  btnApagar.hidden   = false;
+  btnReusar.hidden   = true;
+  btnProcessar.disabled = false;
+  statusRec.textContent = '✅ Gravação pronta!';
+}
+
+// GRAVAR
+btnGravar.addEventListener('click', async () => {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream   = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mimeType = getMimeType();
     chunks = [];
 
@@ -70,77 +75,92 @@ btnGravar && btnGravar.addEventListener('click', async () => {
       ? new MediaRecorder(stream, { mimeType })
       : new MediaRecorder(stream);
 
-    const realMime = mediaRecorder.mimeType || mimeType || 'audio/webm';
-
     mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
     mediaRecorder.onstop = () => {
-      const blob = new Blob(chunks, { type: realMime });
-      // Extensão baseada no mime real
+      const realMime = mediaRecorder.mimeType || mimeType || 'audio/webm';
       let ext = 'webm';
       if (realMime.includes('ogg')) ext = 'ogg';
       else if (realMime.includes('mp4')) ext = 'mp4';
-      arquivoAtual = new File([blob], `gravacao.${ext}`, { type: realMime });
-      previewAudio.src = URL.createObjectURL(blob);
-      previewAudio.style.display = 'block';
-      if (btnDeletar) btnDeletar.style.display = 'inline-block';
-      stream.getTracks().forEach(t => t.stop());
-      cancelAnimationFrame(animFrame);
-    };
 
-    // Visualizador
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    analyser = audioContext.createAnalyser();
-    const src = audioContext.createMediaStreamSource(stream);
-    src.connect(analyser);
-    drawVisualizer();
+      blobGravado  = new Blob(chunks, { type: realMime });
+      arquivoAtual = new File([blobGravado], `gravacao.${ext}`, { type: realMime });
+      stream.getTracks().forEach(t => t.stop());
+      clearInterval(timerInterval);
+      setGravando(false);
+      mostrarPreview(blobGravado, realMime);
+    };
 
     mediaRecorder.start(250);
     startTime = Date.now();
     timerInterval = setInterval(() => {
-      if (timerEl) timerEl.textContent = formatTime(Date.now() - startTime);
+      timerEl.textContent = formatTime(Date.now() - startTime);
     }, 500);
+    setGravando(true);
 
-    btnGravar.style.display = 'none';
-    btnParar.style.display  = 'inline-block';
-    if (timerEl) timerEl.style.display = 'block';
   } catch(e) {
     alert('Erro ao acessar microfone: ' + e.message);
   }
 });
 
-btnParar && btnParar.addEventListener('click', () => {
+// PARAR
+btnParar.addEventListener('click', () => {
   if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-  clearInterval(timerInterval);
-  btnParar.style.display  = 'none';
-  btnGravar.style.display = 'inline-block';
-  if (timerEl) timerEl.style.display = 'none';
 });
 
-btnDeletar && btnDeletar.addEventListener('click', () => {
+// NOVA GRAVAÇÃO
+btnRegravar.addEventListener('click', () => {
   arquivoAtual = null;
-  chunks = [];
-  previewAudio.src = '';
-  previewAudio.style.display = 'none';
-  btnDeletar.style.display = 'none';
-  if (timerEl) timerEl.textContent = '00:00';
+  blobGravado  = null;
+  previewBox.hidden      = true;
+  previewAudio.src       = '';
+  btnRegravar.hidden     = true;
+  btnApagar.hidden       = true;
+  btnReusar.hidden       = true;
+  btnProcessar.disabled  = true;
+  statusRec.textContent  = 'Pronto para gravar';
+  timerEl.textContent    = '00:00';
 });
 
-audioInput && audioInput.addEventListener('change', () => {
-  if (audioInput.files.length > 0) {
-    arquivoAtual = audioInput.files[0];
-    previewAudio.src = URL.createObjectURL(arquivoAtual);
-    previewAudio.style.display = 'block';
-    if (btnDeletar) btnDeletar.style.display = 'inline-block';
+// APAGAR
+btnApagar.addEventListener('click', () => {
+  btnRegravar.click();
+});
+
+// REUSAR
+btnReusar.addEventListener('click', () => {
+  if (blobGravado) {
+    arquivoAtual = new File([blobGravado], arquivoAtual.name, { type: arquivoAtual.type });
+    btnReusar.hidden = true;
+    btnProcessar.disabled = false;
+    statusRec.textContent = '✅ Pronto para processar novamente!';
   }
 });
 
-form && form.addEventListener('submit', async e => {
+// SELECIONAR ARQUIVO
+audioInput.addEventListener('change', () => {
+  if (audioInput.files.length > 0) {
+    arquivoAtual = audioInput.files[0];
+    blobGravado  = null;
+    previewBox.hidden = false;
+    previewAudio.src  = URL.createObjectURL(arquivoAtual);
+    btnProcessar.disabled = false;
+    btnRegravar.hidden = true;
+    btnApagar.hidden   = true;
+    statusRec.textContent = `📂 ${arquivoAtual.name}`;
+  }
+});
+
+// PROCESSAR
+form.addEventListener('submit', async e => {
   e.preventDefault();
   if (!arquivoAtual) { alert('Grave ou selecione um áudio primeiro!'); return; }
 
-  statusEl.style.display = 'block';
-  statusEl.textContent   = '⏳ Processando...';
-  resultEl.style.display = 'none';
+  resultado.hidden       = true;
+  erroBox.hidden         = true;
+  btnProcessar.disabled  = true;
+  document.getElementById('btn-texto').hidden   = true;
+  document.getElementById('btn-loading').hidden = false;
 
   const data = new FormData(form);
   data.set('audio', arquivoAtual, arquivoAtual.name);
@@ -148,22 +168,23 @@ form && form.addEventListener('submit', async e => {
   try {
     const resp = await fetch('/processar', { method: 'POST', body: data });
     const json = await resp.json();
-    statusEl.style.display = 'none';
 
     if (json.sucesso) {
-      resultEl.style.display  = 'block';
-      resultEl.className      = 'result success';
-      audioResult.src         = json.url;
-      audioResult.style.display = 'block';
+      resultado.hidden  = false;
+      player.src        = json.url;
+      btnDownload.href  = json.url;
+      // Mostra botão reusar após sucesso
+      btnReusar.hidden  = (blobGravado === null);
     } else {
-      resultEl.style.display = 'block';
-      resultEl.className     = 'result error';
-      resultEl.innerHTML     = `❌ ${json.erro || 'Erro desconhecido'}`;
+      erroBox.hidden  = false;
+      msgErro.textContent = '❌ ' + (json.erro || 'Erro desconhecido');
     }
   } catch(err) {
-    statusEl.style.display = 'none';
-    resultEl.style.display = 'block';
-    resultEl.className     = 'result error';
-    resultEl.innerHTML     = `❌ Erro de conexão: ${err.message}`;
+    erroBox.hidden  = false;
+    msgErro.textContent = '❌ Erro de conexão: ' + err.message;
+  } finally {
+    btnProcessar.disabled = false;
+    document.getElementById('btn-texto').hidden   = false;
+    document.getElementById('btn-loading').hidden = true;
   }
 });
