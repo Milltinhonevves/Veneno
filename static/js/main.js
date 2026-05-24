@@ -1,167 +1,169 @@
-// ─── VENENO — Frontend JS ─────────────────────────────────────────
-
-const form         = document.getElementById('form-veneno');
-const audioInput   = document.getElementById('audio-input');
-const btnProcessar = document.getElementById('btn-processar');
-const btnTexto     = document.getElementById('btn-texto');
-const btnLoading   = document.getElementById('btn-loading');
-const resultado    = document.getElementById('resultado');
-const player       = document.getElementById('player');
-const btnDownload  = document.getElementById('btn-download');
-const erroDiv      = document.getElementById('erro');
-const msgErro      = document.getElementById('msg-erro');
-
-const btnGravar    = document.getElementById('btn-gravar');
-const btnParar     = document.getElementById('btn-parar');
-const btnReGravar  = document.getElementById('btn-regravar');
-const btnReusar    = document.getElementById('btn-reusar');
-const btnApagar    = document.getElementById('btn-apagar');
-const previewAudio = document.getElementById('preview-audio');
-const previewBox   = document.getElementById('preview-box');
-const statusRec    = document.getElementById('status-rec');
-const timerEl      = document.getElementById('timer');
-const ondas        = document.getElementById('ondas');
+const form        = document.getElementById('tuner-form');
+const btnGravar   = document.getElementById('btn-gravar');
+const btnParar    = document.getElementById('btn-parar');
+const btnDeletar  = document.getElementById('btn-deletar');
+const timerEl     = document.getElementById('timer');
+const previewAudio= document.getElementById('preview-audio');
+const audioInput  = document.getElementById('audio-input');
+const statusEl    = document.getElementById('status');
+const resultEl    = document.getElementById('result');
+const audioResult = document.getElementById('audio-result');
+const canvas      = document.getElementById('visualizer');
+const canvasCtx   = canvas ? canvas.getContext('2d') : null;
 
 let mediaRecorder = null;
-let chunks = [];
-let arquivoAtual = null;
+let chunks        = [];
 let timerInterval = null;
-let segundos = 0;
+let startTime     = null;
+let arquivoAtual  = null;
+let audioContext  = null;
+let analyser      = null;
+let animFrame     = null;
 
-function formatarTempo(s) {
-  const m = Math.floor(s / 60).toString().padStart(2,'0');
-  const ss = (s % 60).toString().padStart(2,'0');
-  return `${m}:${ss}`;
+function getMimeType() {
+  const tipos = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/ogg',
+    'audio/mp4',
+  ];
+  for (const t of tipos) {
+    if (MediaRecorder.isTypeSupported(t)) return t;
+  }
+  return '';
 }
 
-// ─── GRAVAR ──────────────────────────────────────────────────────
-btnGravar.addEventListener('click', async () => {
+function formatTime(ms) {
+  const s = Math.floor(ms / 1000);
+  return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+
+function drawVisualizer() {
+  if (!analyser || !canvasCtx) return;
+  animFrame = requestAnimationFrame(drawVisualizer);
+  const buf = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteTimeDomainData(buf);
+  canvasCtx.fillStyle = '#111';
+  canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+  canvasCtx.lineWidth = 2;
+  canvasCtx.strokeStyle = '#00ff88';
+  canvasCtx.beginPath();
+  const sl = canvas.width / buf.length;
+  let x = 0;
+  for (let i = 0; i < buf.length; i++) {
+    const y = (buf[i] / 128.0) * (canvas.height / 2);
+    i === 0 ? canvasCtx.moveTo(x, y) : canvasCtx.lineTo(x, y);
+    x += sl;
+  }
+  canvasCtx.lineTo(canvas.width, canvas.height / 2);
+  canvasCtx.stroke();
+}
+
+btnGravar && btnGravar.addEventListener('click', async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mimeType = getMimeType();
     chunks = [];
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+
+    mediaRecorder = mimeType
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream);
+
+    const realMime = mediaRecorder.mimeType || mimeType || 'audio/webm';
+
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
     mediaRecorder.onstop = () => {
-      clearInterval(timerInterval);
-      const blob = new Blob(chunks, { type: 'audio/wav' });
-      arquivoAtual = new File([blob], 'gravacao.wav', { type: 'audio/wav' });
+      const blob = new Blob(chunks, { type: realMime });
+      // Extensão baseada no mime real
+      let ext = 'webm';
+      if (realMime.includes('ogg')) ext = 'ogg';
+      else if (realMime.includes('mp4')) ext = 'mp4';
+      arquivoAtual = new File([blob], `gravacao.${ext}`, { type: realMime });
       previewAudio.src = URL.createObjectURL(blob);
-      previewBox.hidden = false;
-      btnGravar.hidden = true;
-      btnParar.hidden = true;
-      btnReGravar.hidden = false;
-      btnReusar.hidden = false;
-      btnApagar.hidden = false;
-      btnProcessar.disabled = false;
-      ondas.classList.remove('ativo');
-      statusRec.textContent = '✅ Gravação pronta! Ouça antes de processar.';
+      previewAudio.style.display = 'block';
+      if (btnDeletar) btnDeletar.style.display = 'inline-block';
       stream.getTracks().forEach(t => t.stop());
+      cancelAnimationFrame(animFrame);
     };
-    mediaRecorder.start();
-    segundos = 0;
-    timerEl.textContent = '00:00';
+
+    // Visualizador
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioContext.createAnalyser();
+    const src = audioContext.createMediaStreamSource(stream);
+    src.connect(analyser);
+    drawVisualizer();
+
+    mediaRecorder.start(250);
+    startTime = Date.now();
     timerInterval = setInterval(() => {
-      segundos++;
-      timerEl.textContent = formatarTempo(segundos);
-    }, 1000);
-    btnGravar.hidden = true;
-    btnParar.hidden = false;
-    btnReGravar.hidden = true;
-    btnApagar.hidden = true;
-    previewBox.hidden = true;
-    ondas.classList.add('ativo');
-    statusRec.textContent = '🔴 Gravando...';
-    esconderResultado();
-  } catch(err) {
-    statusRec.textContent = '❌ Permita o acesso ao microfone!';
+      if (timerEl) timerEl.textContent = formatTime(Date.now() - startTime);
+    }, 500);
+
+    btnGravar.style.display = 'none';
+    btnParar.style.display  = 'inline-block';
+    if (timerEl) timerEl.style.display = 'block';
+  } catch(e) {
+    alert('Erro ao acessar microfone: ' + e.message);
   }
 });
 
-// ─── PARAR ───────────────────────────────────────────────────────
-btnParar.addEventListener('click', () => {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
-  }
+btnParar && btnParar.addEventListener('click', () => {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  clearInterval(timerInterval);
+  btnParar.style.display  = 'none';
+  btnGravar.style.display = 'inline-block';
+  if (timerEl) timerEl.style.display = 'none';
 });
 
-// ─── APAGAR ──────────────────────────────────────────────────────
-btnApagar.addEventListener('click', () => {
+btnDeletar && btnDeletar.addEventListener('click', () => {
   arquivoAtual = null;
+  chunks = [];
   previewAudio.src = '';
-  previewBox.hidden = true;
-  btnGravar.hidden = false;
-  btnParar.hidden = true;
-  btnReGravar.hidden = true;
-  btnReusar.hidden = true;
-  btnApagar.hidden = true;
-  btnProcessar.disabled = true;
-  timerEl.textContent = '00:00';
-  statusRec.textContent = 'Pronto para gravar';
-  ondas.classList.remove('ativo');
-  esconderResultado();
+  previewAudio.style.display = 'none';
+  btnDeletar.style.display = 'none';
+  if (timerEl) timerEl.textContent = '00:00';
 });
 
-// ─── NOVA GRAVAÇÃO ────────────────────────────────────────────────
-btnReGravar.addEventListener('click', () => {
-  btnApagar.click(); // reutiliza a lógica de apagar
-});
-
-// ─── UPLOAD ARQUIVO ──────────────────────────────────────────────
-audioInput.addEventListener('change', () => {
+audioInput && audioInput.addEventListener('change', () => {
   if (audioInput.files.length > 0) {
     arquivoAtual = audioInput.files[0];
     previewAudio.src = URL.createObjectURL(arquivoAtual);
-    previewBox.hidden = false;
-    btnReusar.hidden = false;
-    btnApagar.hidden = false;
-    btnProcessar.disabled = false;
-    statusRec.textContent = `✅ ${arquivoAtual.name}`;
-    esconderResultado();
+    previewAudio.style.display = 'block';
+    if (btnDeletar) btnDeletar.style.display = 'inline-block';
   }
 });
 
-// ─── ENVIO ────────────────────────────────────────────────────────
-form.addEventListener('submit', async (e) => {
+form && form.addEventListener('submit', async e => {
   e.preventDefault();
-  if (!arquivoAtual) { mostrarErro('Grave ou selecione um áudio primeiro!'); return; }
-  esconderResultado();
+  if (!arquivoAtual) { alert('Grave ou selecione um áudio primeiro!'); return; }
+
+  statusEl.style.display = 'block';
+  statusEl.textContent   = '⏳ Processando...';
+  resultEl.style.display = 'none';
 
   const data = new FormData(form);
   data.set('audio', arquivoAtual, arquivoAtual.name);
-  data.set('chorus',     form.querySelector('[name="chorus"]').checked ? 'true' : 'false');
-  data.set('compressor', form.querySelector('[name="compressor"]').checked ? 'true' : 'false');
-
-  btnTexto.hidden = true;
-  btnLoading.hidden = false;
-  btnProcessar.disabled = true;
 
   try {
-    const res = await fetch('/processar', { method: 'POST', body: data });
-    const json = await res.json();
-    if (!res.ok || json.erro) mostrarErro(json.erro || 'Erro desconhecido.');
-    else mostrarResultado(json.url, json.arquivo);
+    const resp = await fetch('/processar', { method: 'POST', body: data });
+    const json = await resp.json();
+    statusEl.style.display = 'none';
+
+    if (json.sucesso) {
+      resultEl.style.display  = 'block';
+      resultEl.className      = 'result success';
+      audioResult.src         = json.url;
+      audioResult.style.display = 'block';
+    } else {
+      resultEl.style.display = 'block';
+      resultEl.className     = 'result error';
+      resultEl.innerHTML     = `❌ ${json.erro || 'Erro desconhecido'}`;
+    }
   } catch(err) {
-    mostrarErro('Erro de conexão com o servidor.');
-  } finally {
-    btnTexto.hidden = false;
-    btnLoading.hidden = true;
-    btnProcessar.disabled = false;
+    statusEl.style.display = 'none';
+    resultEl.style.display = 'block';
+    resultEl.className     = 'result error';
+    resultEl.innerHTML     = `❌ Erro de conexão: ${err.message}`;
   }
 });
-
-function mostrarResultado(url, nome) {
-  player.src = url;
-  btnDownload.href = url;
-  btnDownload.download = nome;
-  resultado.hidden = false;
-  resultado.scrollIntoView({ behavior: 'smooth' });
-}
-function mostrarErro(msg) {
-  msgErro.textContent = `❌ ${msg}`;
-  erroDiv.hidden = false;
-  erroDiv.scrollIntoView({ behavior: 'smooth' });
-}
-function esconderResultado() {
-  resultado.hidden = true;
-  erroDiv.hidden = true;
-}
