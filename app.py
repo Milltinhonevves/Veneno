@@ -5,16 +5,23 @@ import librosa
 import soundfile as sf
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from pedalboard import Pedalboard, Chorus, Reverb, Compressor, Gain
+import traceback
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['PROCESSED_FOLDER'] = 'processed'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
-ALLOWED_EXTENSIONS = {'wav', 'mp3', 'ogg', 'flac', 'm4a'}
+# Aceita qualquer audio
+ALLOWED_EXTENSIONS = {'wav', 'mp3', 'ogg', 'flac', 'm4a', 'aac', 'amr', '3gp', 'webm', 'opus'}
 
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    if not filename or filename == '':
+        return True  # gravação interna não tem extensão definida
+    if '.' not in filename:
+        return True  # sem extensão = aceita
+    ext = filename.rsplit('.', 1)[1].lower()
+    return ext in ALLOWED_EXTENSIONS
 
 NOTAS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 ESCALAS = {
@@ -72,12 +79,15 @@ def autotune(y, sr, tonica='C', escala='cromatica', strength=1.0, smoothing=0.0)
         window = max(1, int(smoothing * 20))
         shifts = uniform_filter1d(shifts, size=window)
 
-    shift_semitones = float(np.nanmean(shifts[voiced_flag])) if np.any(voiced_flag) else 0.0
+    voiced_shifts = shifts[voiced_flag]
+    if len(voiced_shifts) == 0 or np.all(np.isnan(voiced_shifts)):
+        shift_semitones = 0.0
+    else:
+        shift_semitones = float(np.nanmean(voiced_shifts))
 
     if abs(shift_semitones) < 0.01:
         return y
 
-    # Usa librosa ao invés de pyrubberband
     y_afinado = librosa.effects.pitch_shift(y, sr=sr, n_steps=shift_semitones)
     return y_afinado
 
@@ -104,8 +114,6 @@ def processar():
         return jsonify({'erro': 'Nenhum arquivo enviado'}), 400
 
     arquivo = request.files['audio']
-    if arquivo.filename == '' or not allowed_file(arquivo.filename):
-        return jsonify({'erro': 'Arquivo inválido'}), 400
 
     tonica    = request.form.get('tonica', 'C')
     escala    = request.form.get('escala', 'cromatica')
@@ -115,8 +123,8 @@ def processar():
     chorus    = request.form.get('chorus', 'false') == 'true'
     compressor = request.form.get('compressor', 'true') == 'true'
 
-    ext = arquivo.filename.rsplit('.', 1)[1].lower()
-    nome_original = f"{uuid.uuid4()}.{ext}"
+    # Salva sempre como .wav independente da extensão original
+    nome_original = f"{uuid.uuid4()}.wav"
     caminho_original = os.path.join(app.config['UPLOAD_FOLDER'], nome_original)
 
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -125,6 +133,10 @@ def processar():
 
     try:
         y, sr = librosa.load(caminho_original, sr=None, mono=True)
+
+        if len(y) == 0:
+            return jsonify({'erro': 'Áudio vazio, grave novamente.'}), 400
+
         y_afinado = autotune(y, sr, tonica=tonica, escala=escala,
                              strength=strength, smoothing=smoothing)
         y_final = aplicar_efeitos(y_afinado, sr, reverb=reverb,
@@ -139,7 +151,9 @@ def processar():
             'url': f'/download/{nome_saida}'
         })
     except Exception as e:
-        return jsonify({'erro': str(e)}), 500
+        erro_detalhado = traceback.format_exc()
+        print("ERRO:", erro_detalhado)
+        return jsonify({'erro': f'Erro ao processar: {str(e)}'}), 500
 
 @app.route('/download/<nome_arquivo>')
 def download(nome_arquivo):
