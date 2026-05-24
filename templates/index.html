@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VENENO — Auto-tune Vocal</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <div class="container">
+
+    <header>
+      <div class="logo">
+        <span class="logo-icon">🐍</span>
+        <h1>VENENO</h1>
+      </div>
+      <p class="tagline">Afinação vocal com veneno</p>
+    </header>
+
+    <main>
+      <form id="form-veneno" enctype="multipart/form-data">
+
+        <!-- Upload de áudio -->
+        <div class="card" id="upload-area">
+          <label for="audio-input" class="upload-label">
+            <span class="upload-icon">🎤</span>
+            <span id="upload-texto">Clique ou arraste seu áudio aqui</span>
+            <small>WAV · MP3 · OGG · FLAC · M4A (até 50MB)</small>
+          </label>
+          <input type="file" id="audio-input" name="audio" accept=".wav,.mp3,.ogg,.flac,.m4a" hidden />
+        </div>
+
+        <!-- Controles de Afinação -->
+        <div class="card">
+          <h2>🎵 Afinação</h2>
+
+          <div class="row-2">
+            <div class="campo">
+              <label>Tônica</label>
+              <select name="tonica">
+                <option value="C">C</option>
+                <option value="C#">C#</option>
+                <option value="D">D</option>
+                <option value="D#">D#</option>
+                <option value="E">E</option>
+                <option value="F">F</option>
+                <option value="F#">F#</option>
+                <option value="G">G</option>
+                <option value="G#">G#</option>
+                <option value="A" selected>A</option>
+                <option value="A#">A#</option>
+                <option value="B">B</option>
+              </select>
+            </div>
+
+            <div class="campo">
+              <label>Escala</label>
+              <select name="escala">
+                <option value="cromatica">Cromática</option>
+                <option value="maior">Maior</option>
+                <option value="menor">Menor</option>
+                <option value="pentatonica_maior">Pentatônica Maior</option>
+                <option value="pentatonica_menor">Pentatônica Menor</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="campo">
+            <label>Intensidade do Auto-tune <span id="val-strength">100%</span></label>
+            <input type="range" name="strength" min="0" max="1" step="0.01" value="1"
+              oninput="document.getElementById('val-strength').textContent = Math.round(this.value * 100) + '%'" />
+          </div>
+
+          <div class="campo">
+            <label>Suavização <span id="val-smooth">0%</span> <small>(0 = robótico · 100 = natural)</small></label>
+            <input type="range" name="smoothing" min="0" max="1" step="0.01" value="0"
+              oninput="document.getElementById('val-smooth').textContent = Math.round(this.value * 100) + '%'" />
+          </div>
+        </div>
+
+        <!-- Efeitos -->
+        <div class="card">
+          <h2>🎛️ Efeitos</h2>
+
+          <div class="campo">
+            <label>Reverb <span id="val-reverb">0%</span></label>
+            <input type="range" name="reverb" min="0" max="1" step="0.01" value="0"
+              oninput="document.getElementById('val-reverb').textContent = Math.round(this.value * 100) + '%'" />
+          </div>
+
+          <div class="row-2">
+            <label class="toggle">
+              <input type="checkbox" name="chorus" value="true" />
+              <span class="slider"></span>
+              Chorus
+            </label>
+
+            <label class="toggle">
+              <input type="checkbox" name="compressor" value="true" checked />
+              <span class="slider"></span>
+              Compressor
+            </label>
+          </div>
+        </div>
+
+        <!-- Botão -->
+        <button type="submit" id="btn-processar" disabled>
+          <span id="btn-texto">🐍 Aplicar Veneno</span>
+          <span id="btn-loading" hidden>⏳ Processando...</span>
+        </button>
+
+      </form>
+
+      <!-- Resultado -->
+      <div id="resultado" class="card resultado" hidden>
+        <h2>✅ Pronto!</h2>
+        <audio id="player" controls></audio>
+        <a id="btn-download" class="btn-download" download>⬇️ Baixar áudio processado</a>
+      </div>
+
+      <div id="erro" class="card erro" hidden>
+        <p id="msg-erro"></p>
+      </div>
+    </main>
+
+    <footer>
+      <p>🐍 VENENO — por Miltinho Neves</p>
+    </footer>
+  </div>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>
