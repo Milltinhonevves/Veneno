@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>VENENO — Auto-tune Vocal</title>
   <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="manifest" href="/static/manifest.json" />
+  <meta name="theme-color" content="#b400ff" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Veneno" />
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
 </head>
 <body>
   <div class="container">
@@ -20,7 +27,6 @@
     <main>
       <form id="form-veneno" enctype="multipart/form-data">
 
-        <!-- Upload de áudio -->
         <div class="card" id="upload-area">
           <label for="audio-input" class="upload-label">
             <span class="upload-icon">🎤</span>
@@ -30,29 +36,20 @@
           <input type="file" id="audio-input" name="audio" accept=".wav,.mp3,.ogg,.flac,.m4a" hidden />
         </div>
 
-        <!-- Controles de Afinação -->
         <div class="card">
           <h2>🎵 Afinação</h2>
-
           <div class="row-2">
             <div class="campo">
               <label>Tônica</label>
               <select name="tonica">
-                <option value="C">C</option>
-                <option value="C#">C#</option>
-                <option value="D">D</option>
-                <option value="D#">D#</option>
-                <option value="E">E</option>
-                <option value="F">F</option>
-                <option value="F#">F#</option>
-                <option value="G">G</option>
-                <option value="G#">G#</option>
-                <option value="A" selected>A</option>
-                <option value="A#">A#</option>
-                <option value="B">B</option>
+                <option value="C">C</option><option value="C#">C#</option>
+                <option value="D">D</option><option value="D#">D#</option>
+                <option value="E">E</option><option value="F">F</option>
+                <option value="F#">F#</option><option value="G">G</option>
+                <option value="G#">G#</option><option value="A" selected>A</option>
+                <option value="A#">A#</option><option value="B">B</option>
               </select>
             </div>
-
             <div class="campo">
               <label>Escala</label>
               <select name="escala">
@@ -64,46 +61,37 @@
               </select>
             </div>
           </div>
-
           <div class="campo">
-            <label>Intensidade do Auto-tune <span id="val-strength">100%</span></label>
+            <label>Intensidade <span id="val-strength">100%</span></label>
             <input type="range" name="strength" min="0" max="1" step="0.01" value="1"
-              oninput="document.getElementById('val-strength').textContent = Math.round(this.value * 100) + '%'" />
+              oninput="document.getElementById('val-strength').textContent = Math.round(this.value*100)+'%'" />
           </div>
-
           <div class="campo">
-            <label>Suavização <span id="val-smooth">0%</span> <small>(0 = robótico · 100 = natural)</small></label>
+            <label>Suavização <span id="val-smooth">0%</span> <small>(0=robótico · 100=natural)</small></label>
             <input type="range" name="smoothing" min="0" max="1" step="0.01" value="0"
-              oninput="document.getElementById('val-smooth').textContent = Math.round(this.value * 100) + '%'" />
+              oninput="document.getElementById('val-smooth').textContent = Math.round(this.value*100)+'%'" />
           </div>
         </div>
 
-        <!-- Efeitos -->
         <div class="card">
           <h2>🎛️ Efeitos</h2>
-
           <div class="campo">
             <label>Reverb <span id="val-reverb">0%</span></label>
             <input type="range" name="reverb" min="0" max="1" step="0.01" value="0"
-              oninput="document.getElementById('val-reverb').textContent = Math.round(this.value * 100) + '%'" />
+              oninput="document.getElementById('val-reverb').textContent = Math.round(this.value*100)+'%'" />
           </div>
-
           <div class="row-2">
             <label class="toggle">
               <input type="checkbox" name="chorus" value="true" />
-              <span class="slider"></span>
-              Chorus
+              <span class="slider"></span> Chorus
             </label>
-
             <label class="toggle">
               <input type="checkbox" name="compressor" value="true" checked />
-              <span class="slider"></span>
-              Compressor
+              <span class="slider"></span> Compressor
             </label>
           </div>
         </div>
 
-        <!-- Botão -->
         <button type="submit" id="btn-processar" disabled>
           <span id="btn-texto">🐍 Aplicar Veneno</span>
           <span id="btn-loading" hidden>⏳ Processando...</span>
@@ -111,7 +99,6 @@
 
       </form>
 
-      <!-- Resultado -->
       <div id="resultado" class="card resultado" hidden>
         <h2>✅ Pronto!</h2>
         <audio id="player" controls></audio>
@@ -129,5 +116,10 @@
   </div>
 
   <script src="/static/js/main.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/sw.js');
+    }
+  </script>
 </body>
 </html>
