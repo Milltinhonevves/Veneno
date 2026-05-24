@@ -1,137 +1,153 @@
 // ─── VENENO — Frontend JS ─────────────────────────────────────────
 
-const form        = document.getElementById('form-veneno');
-const audioInput  = document.getElementById('audio-input');
-const uploadArea  = document.getElementById('upload-area');
-const uploadTexto = document.getElementById('upload-texto');
-const btnProcessar= document.getElementById('btn-processar');
-const btnTexto    = document.getElementById('btn-texto');
-const btnLoading  = document.getElementById('btn-loading');
-const resultado   = document.getElementById('resultado');
-const player      = document.getElementById('player');
-const btnDownload = document.getElementById('btn-download');
-const erroDiv     = document.getElementById('erro');
-const msgErro     = document.getElementById('msg-erro');
-const btnGravar   = document.getElementById('btn-gravar');
-const btnPararGravacao = document.getElementById('btn-parar-gravacao');
-const statusGravacao = document.getElementById('status-gravacao');
+const form         = document.getElementById('form-veneno');
+const audioInput   = document.getElementById('audio-input');
+const btnProcessar = document.getElementById('btn-processar');
+const btnTexto     = document.getElementById('btn-texto');
+const btnLoading   = document.getElementById('btn-loading');
+const resultado    = document.getElementById('resultado');
+const player       = document.getElementById('player');
+const btnDownload  = document.getElementById('btn-download');
+const erroDiv      = document.getElementById('erro');
+const msgErro      = document.getElementById('msg-erro');
 
-let arquivoAtual = null; // guarda o arquivo pra reusar
+// ─── GRAVADOR ────────────────────────────────────────────────────
+const btnGravar    = document.getElementById('btn-gravar');
+const btnParar     = document.getElementById('btn-parar');
+const btnReGravar  = document.getElementById('btn-regravar');
+const btnReusar    = document.getElementById('btn-reusar');
+const previewAudio = document.getElementById('preview-audio');
+const previewBox   = document.getElementById('preview-box');
+const statusRec    = document.getElementById('status-rec');
+const timerEl      = document.getElementById('timer');
+const ondas        = document.getElementById('ondas');
+
 let mediaRecorder = null;
 let chunks = [];
+let arquivoAtual = null;
+let timerInterval = null;
+let segundos = 0;
 
-// ─── UPLOAD VIA ARQUIVO ───────────────────────────────────────────
-uploadArea.addEventListener('click', () => audioInput.click());
-
-uploadArea.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  uploadArea.classList.add('ativo');
-});
-uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('ativo'));
-uploadArea.addEventListener('drop', (e) => {
-  e.preventDefault();
-  uploadArea.classList.remove('ativo');
-  const files = e.dataTransfer.files;
-  if (files.length > 0) selecionarArquivo(files[0]);
-});
-
-audioInput.addEventListener('change', () => {
-  if (audioInput.files.length > 0) selecionarArquivo(audioInput.files[0]);
-});
-
-function selecionarArquivo(arquivo) {
-  arquivoAtual = arquivo;
-  uploadTexto.textContent = `✅ ${arquivo.name}`;
-  uploadArea.classList.add('ativo');
-  btnProcessar.disabled = false;
-  esconderResultado();
-  document.getElementById('btn-reusar').hidden = false;
+function formatarTempo(s) {
+  const m = Math.floor(s / 60).toString().padStart(2,'0');
+  const ss = (s % 60).toString().padStart(2,'0');
+  return `${m}:${ss}`;
 }
 
-// ─── GRAVAÇÃO DE VOS ──────────────────────────────────────────────
 btnGravar.addEventListener('click', async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     chunks = [];
     mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
     mediaRecorder.onstop = () => {
+      clearInterval(timerInterval);
       const blob = new Blob(chunks, { type: 'audio/wav' });
-      const arquivo = new File([blob], 'gravacao.wav', { type: 'audio/wav' });
-      selecionarArquivo(arquivo);
-      statusGravacao.textContent = '✅ Gravação concluída!';
-      btnGravar.hidden = false;
-      btnPararGravacao.hidden = true;
+      arquivoAtual = new File([blob], 'gravacao.wav', { type: 'audio/wav' });
+      previewAudio.src = URL.createObjectURL(blob);
+      previewBox.hidden = false;
+      btnGravar.hidden = true;
+      btnParar.hidden = true;
+      btnReGravar.hidden = false;
+      btnReusar.hidden = false;
+      btnProcessar.disabled = false;
+      ondas.classList.remove('ativo');
+      statusRec.textContent = '✅ Gravação pronta! Ouça antes de processar.';
       stream.getTracks().forEach(t => t.stop());
     };
     mediaRecorder.start();
-    statusGravacao.textContent = '🔴 Gravando... clique em Parar';
+    segundos = 0;
+    timerEl.textContent = '00:00';
+    timerInterval = setInterval(() => {
+      segundos++;
+      timerEl.textContent = formatarTempo(segundos);
+    }, 1000);
     btnGravar.hidden = true;
-    btnPararGravacao.hidden = false;
+    btnParar.hidden = false;
+    btnReGravar.hidden = true;
+    previewBox.hidden = true;
+    ondas.classList.add('ativo');
+    statusRec.textContent = '🔴 Gravando...';
     esconderResultado();
-  } catch (err) {
-    statusGravacao.textContent = '❌ Permita o acesso ao microfone!';
+  } catch(err) {
+    statusRec.textContent = '❌ Permita o acesso ao microfone!';
   }
 });
 
-btnPararGravacao.addEventListener('click', () => {
+btnParar.addEventListener('click', () => {
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     mediaRecorder.stop();
   }
 });
 
-// ─── ENVIO DO FORMULÁRIO ──────────────────────────────────────────
+btnReGravar.addEventListener('click', () => {
+  arquivoAtual = null;
+  previewBox.hidden = true;
+  btnGravar.hidden = false;
+  btnParar.hidden = true;
+  btnReGravar.hidden = true;
+  btnReusar.hidden = true;
+  btnProcessar.disabled = true;
+  statusRec.textContent = '';
+  timerEl.textContent = '00:00';
+  esconderResultado();
+});
+
+// ─── UPLOAD ARQUIVO ──────────────────────────────────────────────
+audioInput.addEventListener('change', () => {
+  if (audioInput.files.length > 0) {
+    arquivoAtual = audioInput.files[0];
+    previewAudio.src = URL.createObjectURL(arquivoAtual);
+    previewBox.hidden = false;
+    btnReusar.hidden = false;
+    btnProcessar.disabled = false;
+    statusRec.textContent = `✅ ${arquivoAtual.name}`;
+    esconderResultado();
+  }
+});
+
+// ─── ENVIO ────────────────────────────────────────────────────────
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (!arquivoAtual) {
-    mostrarErro('Selecione ou grave um áudio primeiro!');
-    return;
-  }
+  if (!arquivoAtual) { mostrarErro('Grave ou selecione um áudio primeiro!'); return; }
   esconderResultado();
 
   const data = new FormData(form);
   data.set('audio', arquivoAtual, arquivoAtual.name);
-  data.set('chorus',     form.querySelector('[name="chorus"]').checked     ? 'true' : 'false');
+  data.set('chorus',     form.querySelector('[name="chorus"]').checked ? 'true' : 'false');
   data.set('compressor', form.querySelector('[name="compressor"]').checked ? 'true' : 'false');
 
-  btnTexto.hidden   = true;
+  btnTexto.hidden = true;
   btnLoading.hidden = false;
   btnProcessar.disabled = true;
 
   try {
     const res = await fetch('/processar', { method: 'POST', body: data });
     const json = await res.json();
-    if (!res.ok || json.erro) {
-      mostrarErro(json.erro || 'Erro desconhecido ao processar.');
-    } else {
-      mostrarResultado(json.url, json.arquivo);
-    }
-  } catch (err) {
+    if (!res.ok || json.erro) mostrarErro(json.erro || 'Erro desconhecido.');
+    else mostrarResultado(json.url, json.arquivo);
+  } catch(err) {
     mostrarErro('Erro de conexão com o servidor.');
   } finally {
-    btnTexto.hidden   = false;
+    btnTexto.hidden = false;
     btnLoading.hidden = true;
     btnProcessar.disabled = false;
   }
 });
 
-function mostrarResultado(url, nomeArquivo) {
-  player.src        = url;
-  btnDownload.href  = url;
-  btnDownload.download = nomeArquivo;
-  resultado.hidden  = false;
+function mostrarResultado(url, nome) {
+  player.src = url;
+  btnDownload.href = url;
+  btnDownload.download = nome;
+  resultado.hidden = false;
   resultado.scrollIntoView({ behavior: 'smooth' });
-  // Mostrar botão de reusar
-  document.getElementById('btn-reusar').hidden = false;
 }
-
 function mostrarErro(msg) {
   msgErro.textContent = `❌ ${msg}`;
   erroDiv.hidden = false;
   erroDiv.scrollIntoView({ behavior: 'smooth' });
 }
-
 function esconderResultado() {
   resultado.hidden = true;
-  erroDiv.hidden   = true;
+  erroDiv.hidden = true;
 }
