@@ -1,5 +1,6 @@
 import os
 import uuid
+import subprocess
 import numpy as np
 import librosa
 import soundfile as sf
@@ -12,16 +13,14 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['PROCESSED_FOLDER'] = 'processed'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
-# Aceita qualquer audio
-ALLOWED_EXTENSIONS = {'wav', 'mp3', 'ogg', 'flac', 'm4a', 'aac', 'amr', '3gp', 'webm', 'opus'}
-
-def allowed_file(filename):
-    if not filename or filename == '':
-        return True  # gravação interna não tem extensão definida
-    if '.' not in filename:
-        return True  # sem extensão = aceita
-    ext = filename.rsplit('.', 1)[1].lower()
-    return ext in ALLOWED_EXTENSIONS
+def converter_para_wav(caminho_entrada, caminho_saida):
+    """Converte qualquer formato de audio para WAV usando ffmpeg"""
+    resultado = subprocess.run([
+        'ffmpeg', '-y', '-i', caminho_entrada,
+        '-ar', '44100', '-ac', '1', '-f', 'wav', caminho_saida
+    ], capture_output=True, text=True)
+    if resultado.returncode != 0:
+        raise Exception(f"Erro ffmpeg: {resultado.stderr[-200:]}")
 
 NOTAS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 ESCALAS = {
@@ -65,10 +64,10 @@ def autotune(y, sr, tonica='C', escala='cromatica', strength=1.0, smoothing=0.0)
     )
 
     notas_escala = gerar_notas_escala(tonica, escala)
-
     shifts = np.zeros(len(f0))
+
     for i, freq in enumerate(f0):
-        if voiced_flag[i] and freq > 0 and not np.isnan(freq):
+        if voiced_flag[i] and freq is not None and freq > 0 and not np.isnan(freq):
             midi_atual = hz_para_midi(freq)
             midi_alvo = nota_mais_proxima(midi_atual, notas_escala)
             diferenca = midi_alvo - midi_atual
@@ -101,8 +100,7 @@ def aplicar_efeitos(y, sr, reverb=0.0, chorus=False, compressor=True):
         board.append(Reverb(room_size=reverb))
     board.append(Gain(gain_db=2))
     y_float32 = y.astype(np.float32)
-    y_processado = board(y_float32, sr)
-    return y_processado
+    return board(y_float32, sr)
 
 @app.route('/')
 def index():
@@ -115,24 +113,36 @@ def processar():
 
     arquivo = request.files['audio']
 
-    tonica    = request.form.get('tonica', 'C')
-    escala    = request.form.get('escala', 'cromatica')
-    strength  = float(request.form.get('strength', 1.0))
-    smoothing = float(request.form.get('smoothing', 0.0))
-    reverb    = float(request.form.get('reverb', 0.0))
-    chorus    = request.form.get('chorus', 'false') == 'true'
+    tonica     = request.form.get('tonica', 'C')
+    escala     = request.form.get('escala', 'cromatica')
+    strength   = float(request.form.get('strength', 1.0))
+    smoothing  = float(request.form.get('smoothing', 0.0))
+    reverb     = float(request.form.get('reverb', 0.0))
+    chorus     = request.form.get('chorus', 'false') == 'true'
     compressor = request.form.get('compressor', 'true') == 'true'
-
-    # Salva sempre como .wav independente da extensão original
-    nome_original = f"{uuid.uuid4()}.wav"
-    caminho_original = os.path.join(app.config['UPLOAD_FOLDER'], nome_original)
 
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(app.config['PROCESSED_FOLDER'], exist_ok=True)
-    arquivo.save(caminho_original)
+
+    # Salva o arquivo original (qualquer formato)
+    uid = uuid.uuid4()
+    nome_temp = f"{uid}_orig"
+    caminho_temp = os.path.join(app.config['UPLOAD_FOLDER'], nome_temp)
+    arquivo.save(caminho_temp)
+
+    # Converte para WAV com ffmpeg
+    caminho_wav = os.path.join(app.config['UPLOAD_FOLDER'], f"{uid}.wav")
 
     try:
-        y, sr = librosa.load(caminho_original, sr=None, mono=True)
+        converter_para_wav(caminho_temp, caminho_wav)
+    except Exception as e:
+        return jsonify({'erro': f'Formato de áudio não suportado: {str(e)}'}), 400
+    finally:
+        try: os.remove(caminho_temp)
+        except: pass
+
+    try:
+        y, sr = librosa.load(caminho_wav, sr=None, mono=True)
 
         if len(y) == 0:
             return jsonify({'erro': 'Áudio vazio, grave novamente.'}), 400
@@ -141,6 +151,7 @@ def processar():
                              strength=strength, smoothing=smoothing)
         y_final = aplicar_efeitos(y_afinado, sr, reverb=reverb,
                                    chorus=chorus, compressor=compressor)
+
         nome_saida = f"veneno_{uuid.uuid4()}.wav"
         caminho_saida = os.path.join(app.config['PROCESSED_FOLDER'], nome_saida)
         sf.write(caminho_saida, y_final, sr)
@@ -151,9 +162,11 @@ def processar():
             'url': f'/download/{nome_saida}'
         })
     except Exception as e:
-        erro_detalhado = traceback.format_exc()
-        print("ERRO:", erro_detalhado)
+        print("ERRO:", traceback.format_exc())
         return jsonify({'erro': f'Erro ao processar: {str(e)}'}), 500
+    finally:
+        try: os.remove(caminho_wav)
+        except: pass
 
 @app.route('/download/<nome_arquivo>')
 def download(nome_arquivo):
