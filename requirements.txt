@@ -6,3 +6,4 @@ numpy==1.26.4
 pedalboard==0.9.13
 scipy
 audioread
+pydub==0.25.1
