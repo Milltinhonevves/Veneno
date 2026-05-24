@@ -27,15 +27,31 @@
     <main>
       <form id="form-veneno" enctype="multipart/form-data">
 
-        <div class="card" id="upload-area">
-          <label for="audio-input" class="upload-label">
-            <span class="upload-icon">🎤</span>
-            <span id="upload-texto">Clique ou arraste seu áudio aqui</span>
-            <small>WAV · MP3 · OGG · FLAC · M4A (até 50MB)</small>
-          </label>
+        <!-- Gravação ou Upload -->
+        <div class="card">
+          <h2>🎤 Áudio</h2>
+
+          <div class="row-2" style="margin-bottom:12px">
+            <button type="button" id="btn-gravar" class="btn-sec">🔴 Gravar voz</button>
+            <button type="button" id="btn-parar-gravacao" class="btn-sec btn-danger" hidden>⏹ Parar</button>
+            <button type="button" onclick="document.getElementById('audio-input').click()" class="btn-sec">📂 Arquivo</button>
+          </div>
+
+          <p id="status-gravacao" style="font-size:0.85rem;color:#b400ff;min-height:20px"></p>
+
           <input type="file" id="audio-input" name="audio" accept=".wav,.mp3,.ogg,.flac,.m4a" hidden />
+
+          <div id="upload-area" class="upload-area">
+            <span id="upload-texto">Nenhum áudio selecionado</span>
+          </div>
+
+          <button type="button" id="btn-reusar" class="btn-sec" hidden
+            onclick="document.getElementById('status-gravacao').textContent='♻️ Usando o mesmo áudio!'; document.getElementById('btn-processar').disabled=false;">
+            ♻️ Reusar mesmo áudio
+          </button>
         </div>
 
+        <!-- Afinação -->
         <div class="card">
           <h2>🎵 Afinação</h2>
           <div class="row-2">
@@ -64,21 +80,22 @@
           <div class="campo">
             <label>Intensidade <span id="val-strength">100%</span></label>
             <input type="range" name="strength" min="0" max="1" step="0.01" value="1"
-              oninput="document.getElementById('val-strength').textContent = Math.round(this.value*100)+'%'" />
+              oninput="document.getElementById('val-strength').textContent=Math.round(this.value*100)+'%'" />
           </div>
           <div class="campo">
             <label>Suavização <span id="val-smooth">0%</span> <small>(0=robótico · 100=natural)</small></label>
             <input type="range" name="smoothing" min="0" max="1" step="0.01" value="0"
-              oninput="document.getElementById('val-smooth').textContent = Math.round(this.value*100)+'%'" />
+              oninput="document.getElementById('val-smooth').textContent=Math.round(this.value*100)+'%'" />
           </div>
         </div>
 
+        <!-- Efeitos -->
         <div class="card">
           <h2>🎛️ Efeitos</h2>
           <div class="campo">
             <label>Reverb <span id="val-reverb">0%</span></label>
             <input type="range" name="reverb" min="0" max="1" step="0.01" value="0"
-              oninput="document.getElementById('val-reverb').textContent = Math.round(this.value*100)+'%'" />
+              oninput="document.getElementById('val-reverb').textContent=Math.round(this.value*100)+'%'" />
           </div>
           <div class="row-2">
             <label class="toggle">
