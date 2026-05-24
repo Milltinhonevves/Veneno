@@ -374,3 +374,16 @@ footer {
   width: 100%;
   margin-top: 10px;
 }
+
+.btn-apagar {
+  background: transparent;
+  border: 1px solid #ff3a3a88;
+  color: #ff3a3a;
+  border-radius: 50px;
+  padding: 10px 28px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.2s;
+}
+.btn-apagar:active { background: #ff3a3a22; }
