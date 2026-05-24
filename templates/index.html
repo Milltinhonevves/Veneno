@@ -151,7 +151,17 @@
     <footer><p>🐍 VENENO — por Miltinho Neves</p></footer>
   </div>
 
-  <script src="/static/js/main.js?v=3"></script>
+  <script src="/static/js/main.js?v=4"></script>
   <script>if('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js');</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => reg.unregister());
+  }).then(() => {
+    navigator.serviceWorker.register('/static/sw.js');
+  });
+}
+</script>
 </body>
 </html>
