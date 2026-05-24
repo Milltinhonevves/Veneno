@@ -15,15 +15,32 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 FFMPEG = '/usr/bin/ffmpeg'
 
-def carregar_audio(caminho):
-    """Sempre converte para WAV via ffmpeg antes de processar"""
+def carregar_audio(caminho, content_type=''):
+    """Converte para WAV via ffmpeg, forçando formato se necessário"""
     caminho_wav = caminho + ".wav"
     try:
-        subprocess.run([
-            FFMPEG, '-y', '-i', caminho,
+        # Determina o formato de entrada baseado no content_type
+        fmt_input = []
+        ct = content_type.lower()
+        if 'webm' in ct:
+            fmt_input = ['-f', 'webm']
+        elif 'ogg' in ct:
+            fmt_input = ['-f', 'ogg']
+        elif 'mp4' in ct or 'mp4a' in ct or 'aac' in ct:
+            fmt_input = ['-f', 'mp4']
+        elif 'mp3' in ct or 'mpeg' in ct:
+            fmt_input = ['-f', 'mp3']
+        # se for wav ou desconhecido, deixa o ffmpeg detectar
+
+        cmd = [FFMPEG, '-y'] + fmt_input + [
+            '-i', caminho,
             '-ar', '44100', '-ac', '1',
             '-f', 'wav', caminho_wav
-        ], capture_output=True, check=True)
+        ]
+        result = subprocess.run(cmd, capture_output=True)
+        if result.returncode != 0:
+            raise Exception(f"ffmpeg: {result.stderr.decode()[-300:]}")
+
         y, sr = librosa.load(caminho_wav, sr=None, mono=True)
         return y, sr
     finally:
@@ -99,6 +116,7 @@ def processar():
         return jsonify({'erro': 'Nenhum arquivo enviado'}), 400
 
     arquivo    = request.files['audio']
+    content_type = arquivo.content_type or ''
     tonica     = request.form.get('tonica', 'C')
     escala     = request.form.get('escala', 'cromatica')
     strength   = float(request.form.get('strength', 1.0))
@@ -115,7 +133,7 @@ def processar():
     arquivo.save(caminho_temp)
 
     try:
-        y, sr = carregar_audio(caminho_temp)
+        y, sr = carregar_audio(caminho_temp, content_type)
 
         if len(y) == 0:
             return jsonify({'erro': 'Áudio vazio, grave novamente.'}), 400
@@ -133,20 +151,15 @@ def processar():
 
     except Exception as e:
         print("ERRO COMPLETO:", traceback.format_exc())
-        return jsonify({'erro': f'Erro ao processar: {str(e)}'}), 500
+        return jsonify({'erro': f'Erro: {str(e)}'}), 500
     finally:
         try: os.remove(caminho_temp)
         except: pass
 
 @app.route('/debug')
 def debug():
-    import glob
     result = subprocess.run([FFMPEG, '-version'], capture_output=True, text=True)
-    return jsonify({
-        'ffmpeg': FFMPEG,
-        'ffmpeg_ok': result.returncode == 0,
-        'versao': result.stdout[:80]
-    })
+    return jsonify({'ffmpeg': FFMPEG, 'ok': result.returncode == 0})
 
 @app.route('/download/<nome_arquivo>')
 def download(nome_arquivo):
