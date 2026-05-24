@@ -1,6 +1,6 @@
 import os
 import uuid
-import subprocess
+import io
 import numpy as np
 import librosa
 import soundfile as sf
@@ -14,13 +14,11 @@ app.config['PROCESSED_FOLDER'] = 'processed'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 def converter_para_wav(caminho_entrada, caminho_saida):
-    """Converte qualquer formato de audio para WAV usando ffmpeg"""
-    resultado = subprocess.run([
-        'ffmpeg', '-y', '-i', caminho_entrada,
-        '-ar', '44100', '-ac', '1', '-f', 'wav', caminho_saida
-    ], capture_output=True, text=True)
-    if resultado.returncode != 0:
-        raise Exception(f"Erro ffmpeg: {resultado.stderr[-200:]}")
+    """Converte qualquer formato para WAV usando pydub"""
+    from pydub import AudioSegment
+    audio = AudioSegment.from_file(caminho_entrada)
+    audio = audio.set_channels(1).set_frame_rate(44100)
+    audio.export(caminho_saida, format="wav")
 
 NOTAS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 ESCALAS = {
@@ -70,8 +68,7 @@ def autotune(y, sr, tonica='C', escala='cromatica', strength=1.0, smoothing=0.0)
         if voiced_flag[i] and freq is not None and freq > 0 and not np.isnan(freq):
             midi_atual = hz_para_midi(freq)
             midi_alvo = nota_mais_proxima(midi_atual, notas_escala)
-            diferenca = midi_alvo - midi_atual
-            shifts[i] = diferenca * strength
+            shifts[i] = (midi_alvo - midi_atual) * strength
 
     if smoothing > 0:
         from scipy.ndimage import uniform_filter1d
@@ -80,15 +77,13 @@ def autotune(y, sr, tonica='C', escala='cromatica', strength=1.0, smoothing=0.0)
 
     voiced_shifts = shifts[voiced_flag]
     if len(voiced_shifts) == 0 or np.all(np.isnan(voiced_shifts)):
-        shift_semitones = 0.0
-    else:
-        shift_semitones = float(np.nanmean(voiced_shifts))
+        return y
 
+    shift_semitones = float(np.nanmean(voiced_shifts))
     if abs(shift_semitones) < 0.01:
         return y
 
-    y_afinado = librosa.effects.pitch_shift(y, sr=sr, n_steps=shift_semitones)
-    return y_afinado
+    return librosa.effects.pitch_shift(y, sr=sr, n_steps=shift_semitones)
 
 def aplicar_efeitos(y, sr, reverb=0.0, chorus=False, compressor=True):
     board = Pedalboard([])
@@ -99,8 +94,7 @@ def aplicar_efeitos(y, sr, reverb=0.0, chorus=False, compressor=True):
     if reverb > 0:
         board.append(Reverb(room_size=reverb))
     board.append(Gain(gain_db=2))
-    y_float32 = y.astype(np.float32)
-    return board(y_float32, sr)
+    return board(y.astype(np.float32), sr)
 
 @app.route('/')
 def index():
@@ -124,19 +118,17 @@ def processar():
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(app.config['PROCESSED_FOLDER'], exist_ok=True)
 
-    # Salva o arquivo original (qualquer formato)
-    uid = uuid.uuid4()
-    nome_temp = f"{uid}_orig"
-    caminho_temp = os.path.join(app.config['UPLOAD_FOLDER'], nome_temp)
-    arquivo.save(caminho_temp)
+    uid = str(uuid.uuid4())
+    caminho_temp = os.path.join(app.config['UPLOAD_FOLDER'], f"{uid}_orig")
+    caminho_wav  = os.path.join(app.config['UPLOAD_FOLDER'], f"{uid}.wav")
 
-    # Converte para WAV com ffmpeg
-    caminho_wav = os.path.join(app.config['UPLOAD_FOLDER'], f"{uid}.wav")
+    arquivo.save(caminho_temp)
 
     try:
         converter_para_wav(caminho_temp, caminho_wav)
     except Exception as e:
-        return jsonify({'erro': f'Formato de áudio não suportado: {str(e)}'}), 400
+        print("ERRO conversão:", traceback.format_exc())
+        return jsonify({'erro': f'Não foi possível ler o áudio: {str(e)}'}), 400
     finally:
         try: os.remove(caminho_temp)
         except: pass
@@ -149,20 +141,17 @@ def processar():
 
         y_afinado = autotune(y, sr, tonica=tonica, escala=escala,
                              strength=strength, smoothing=smoothing)
-        y_final = aplicar_efeitos(y_afinado, sr, reverb=reverb,
-                                   chorus=chorus, compressor=compressor)
+        y_final   = aplicar_efeitos(y_afinado, sr, reverb=reverb,
+                                    chorus=chorus, compressor=compressor)
 
-        nome_saida = f"veneno_{uuid.uuid4()}.wav"
+        nome_saida    = f"veneno_{uuid.uuid4()}.wav"
         caminho_saida = os.path.join(app.config['PROCESSED_FOLDER'], nome_saida)
         sf.write(caminho_saida, y_final, sr)
 
-        return jsonify({
-            'sucesso': True,
-            'arquivo': nome_saida,
-            'url': f'/download/{nome_saida}'
-        })
+        return jsonify({'sucesso': True, 'arquivo': nome_saida, 'url': f'/download/{nome_saida}'})
+
     except Exception as e:
-        print("ERRO:", traceback.format_exc())
+        print("ERRO processamento:", traceback.format_exc())
         return jsonify({'erro': f'Erro ao processar: {str(e)}'}), 500
     finally:
         try: os.remove(caminho_wav)
