@@ -13,53 +13,17 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['PROCESSED_FOLDER'] = 'processed'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
+FFMPEG = '/usr/bin/ffmpeg'
+
 def carregar_audio(caminho):
-    """Carrega audio convertendo para WAV via ffmpeg se necessário"""
-    # Primeiro tenta direto com librosa/soundfile
+    """Sempre converte para WAV via ffmpeg antes de processar"""
+    caminho_wav = caminho + ".wav"
     try:
-        y, sr = librosa.load(caminho, sr=None, mono=True)
-        if len(y) > 0:
-            return y, sr
-    except:
-        pass
-
-    # Fallback: converte com ffmpeg
-    caminho_wav = caminho + "_converted.wav"
-    try:
-        ffmpeg_paths = [
-            'ffmpeg',
-            '/usr/bin/ffmpeg',
-            '/usr/local/bin/ffmpeg',
-            '/nix/var/nix/profiles/default/bin/ffmpeg'
-        ]
-        ffmpeg_bin = None
-        for p in ffmpeg_paths:
-            result = subprocess.run(['which', p] if p == 'ffmpeg' else ['ls', p],
-                                   capture_output=True)
-            if result.returncode == 0:
-                ffmpeg_bin = p
-                break
-
-        # Tenta achar o ffmpeg em qualquer lugar
-        result = subprocess.run(['which', 'ffmpeg'], capture_output=True, text=True)
-        if result.returncode == 0:
-            ffmpeg_bin = result.stdout.strip()
-
-        if not ffmpeg_bin:
-            # Busca em paths comuns do nix
-            import glob
-            matches = glob.glob('/nix/store/*/bin/ffmpeg')
-            if matches:
-                ffmpeg_bin = matches[0]
-
-        if not ffmpeg_bin:
-            raise Exception("ffmpeg não encontrado no servidor")
-
         subprocess.run([
-            ffmpeg_bin, '-y', '-i', caminho,
-            '-ar', '44100', '-ac', '1', '-f', 'wav', caminho_wav
+            FFMPEG, '-y', '-i', caminho,
+            '-ar', '44100', '-ac', '1',
+            '-f', 'wav', caminho_wav
         ], capture_output=True, check=True)
-
         y, sr = librosa.load(caminho_wav, sr=None, mono=True)
         return y, sr
     finally:
@@ -68,11 +32,11 @@ def carregar_audio(caminho):
 
 NOTAS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 ESCALAS = {
-    'maior':  [0, 2, 4, 5, 7, 9, 11],
-    'menor':  [0, 2, 3, 5, 7, 8, 10],
-    'pentatonica_maior': [0, 2, 4, 7, 9],
-    'pentatonica_menor': [0, 3, 5, 7, 10],
-    'cromatica': list(range(12)),
+    'maior':            [0, 2, 4, 5, 7, 9, 11],
+    'menor':            [0, 2, 3, 5, 7, 8, 10],
+    'pentatonica_maior':[0, 2, 4, 7, 9],
+    'pentatonica_menor':[0, 3, 5, 7, 10],
+    'cromatica':        list(range(12)),
 }
 
 def hz_para_midi(hz):
@@ -101,8 +65,8 @@ def autotune(y, sr, tonica='C', escala='cromatica', strength=1.0, smoothing=0.0)
     for i, freq in enumerate(f0):
         if voiced_flag[i] and freq is not None and freq > 0 and not np.isnan(freq):
             midi_atual = hz_para_midi(freq)
-            midi_alvo = nota_mais_proxima(midi_atual, notas_escala)
-            shifts[i] = (midi_alvo - midi_atual) * strength
+            midi_alvo  = nota_mais_proxima(midi_atual, notas_escala)
+            shifts[i]  = (midi_alvo - midi_atual) * strength
     if smoothing > 0:
         from scipy.ndimage import uniform_filter1d
         shifts = uniform_filter1d(shifts, size=max(1, int(smoothing * 20)))
@@ -134,7 +98,7 @@ def processar():
     if 'audio' not in request.files:
         return jsonify({'erro': 'Nenhum arquivo enviado'}), 400
 
-    arquivo = request.files['audio']
+    arquivo    = request.files['audio']
     tonica     = request.form.get('tonica', 'C')
     escala     = request.form.get('escala', 'cromatica')
     strength   = float(request.form.get('strength', 1.0))
@@ -146,8 +110,8 @@ def processar():
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(app.config['PROCESSED_FOLDER'], exist_ok=True)
 
-    uid = str(uuid.uuid4())
-    caminho_temp = os.path.join(app.config['UPLOAD_FOLDER'], f"{uid}_orig")
+    uid          = str(uuid.uuid4())
+    caminho_temp = os.path.join(app.config['UPLOAD_FOLDER'], uid)
     arquivo.save(caminho_temp)
 
     try:
@@ -176,16 +140,13 @@ def processar():
 
 @app.route('/debug')
 def debug():
-    """Endpoint de diagnóstico"""
-    import glob, subprocess
-    info = {}
-    result = subprocess.run(['which', 'ffmpeg'], capture_output=True, text=True)
-    info['ffmpeg_which'] = result.stdout.strip() or 'not found'
-    matches = glob.glob('/nix/store/*/bin/ffmpeg')
-    info['ffmpeg_nix'] = matches[:3] if matches else []
-    result2 = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True)
-    info['ffmpeg_version'] = result2.stdout[:100] if result2.returncode == 0 else result2.stderr[:100]
-    return jsonify(info)
+    import glob
+    result = subprocess.run([FFMPEG, '-version'], capture_output=True, text=True)
+    return jsonify({
+        'ffmpeg': FFMPEG,
+        'ffmpeg_ok': result.returncode == 0,
+        'versao': result.stdout[:80]
+    })
 
 @app.route('/download/<nome_arquivo>')
 def download(nome_arquivo):
