@@ -5,3 +5,4 @@ soundfile==0.12.1
 numpy==1.26.4
 pedalboard==0.9.13
 scipy
+pydub==0.25.1
