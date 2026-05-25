@@ -167,20 +167,28 @@ form.addEventListener('submit', async e => {
 
   try {
     const resp = await fetch('/processar', { method: 'POST', body: data });
-    let json; try { json = await resp.json(); } catch(pe) { erroBox.hidden=false; msgErro.textContent="❌ Servidor retornou: HTTP " + resp.status + " - " + (await resp.text()).substring(0,200); btnProcessar.disabled=false; document.getElementById("btn-texto").hidden=false; document.getElementById("btn-loading").hidden=true; return; }
+    const textoRaw = await resp.text();
+    console.log('Resposta servidor:', resp.status, textoRaw);
 
-    if (json.sucesso) {
-      resultado.hidden  = false;
-      player.src        = json.url;
-      btnDownload.href  = json.url;
-      // Mostra botão reusar após sucesso
-      btnReusar.hidden  = (blobGravado === null);
+    let json = null;
+    try { json = JSON.parse(textoRaw); } catch(pe) {
+      erroBox.hidden = false;
+      msgErro.textContent = '❌ Resposta inválida (HTTP ' + resp.status + '): ' + textoRaw.substring(0, 300);
+      return;
+    }
+
+    if (json && json.sucesso) {
+      resultado.hidden = false;
+      player.src       = json.url;
+      btnDownload.href = json.url;
+      btnReusar.hidden = (blobGravado === null);
     } else {
-      erroBox.hidden  = false;
-      msgErro.textContent = '❌ ' + (json.erro || 'Erro desconhecido');
+      erroBox.hidden = false;
+      const msgFinal = json && json.erro ? json.erro : ('HTTP ' + resp.status + ' - ' + textoRaw.substring(0, 200));
+      msgErro.textContent = '❌ ' + msgFinal;
     }
   } catch(err) {
-    erroBox.hidden  = false;
+    erroBox.hidden = false;
     msgErro.textContent = '❌ Erro de conexão: ' + err.message;
   } finally {
     btnProcessar.disabled = false;
